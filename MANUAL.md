@@ -10,7 +10,9 @@
 **Step 2: Import the macro into Outlook**
 1. Open Outlook
 2. Press **Alt+F11** to open the VBA editor
-3. Go to **File > Import File** and select `ollama-outlook-ai.bas`
+3. Go to **File > Import File** and import **both** files:
+   - `ollama-outlook-ai.bas` (main module)
+   - `ollama-ribbon.cls` (ribbon UI class)
 4. Close the VBA editor
 
 **Step 3: Enable macros**
@@ -33,12 +35,13 @@ The **Ollama AI** button will now appear in email compose windows.
 
 1. **Compose a new email** or **Reply** to an existing one
 2. Write the email body (the AI works with what you've written)
-3. In the toolbar, click **Ollama AI > Process with AI**
-4. Wait a few seconds — the AI response is inserted at your cursor position
+3. In the ribbon, find the **Ollama AI** group (near the top, after Clipboard)
+4. Click **Process with AI** — the AI response is inserted at your cursor position
 
 ### Changing settings
 
-1. In any email compose window, click **Ollama AI > Settings**
+1. In any email compose window, find the **Ollama AI** group in the ribbon
+2. Click **Settings** button
 2. A configuration window opens with three options:
 
 | Setting | What it does |
@@ -83,5 +86,6 @@ Email text → VBA macro → HTTP POST → Ollama (localhost:11434) → AI model
 | File | Purpose |
 |------|---------|
 | `ollama-outlook-ai.bas` | Main VBA module — import into Outlook |
+| `ollama-ribbon.cls` | Ribbon UI class — implements IRibbonExtensibility |
 | `README.md` | Project overview and installation guide |
 | `MANUAL.md` | This file — daily operation reference |

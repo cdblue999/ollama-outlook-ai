@@ -31,18 +31,20 @@ No cloud dependency. No API keys. No data leaves your machine.
 
 1. Open Outlook and press **Alt+F11** to open the VBA editor
 2. In the menu bar, go to **File > Import File**
-3. Select `ollama-outlook-ai.bas`
+3. Import **both** files:
+   - `ollama-outlook-ai.bas` (main module)
+   - `ollama-ribbon.cls` (ribbon UI class)
 4. Close the VBA editor and restart Outlook
 5. Go to **Tools > Macros > Ollama_Initialize** and click **Run** (only needed once)
 
-The "Ollama AI" button will now appear in email compose windows.
+The **Ollama AI** group will now appear in the ribbon of email compose windows.
 
 ## Configuration
 
 To configure the addon:
 
-1. In an email compose window, click the **Ollama AI** button dropdown
-2. Click **Settings**
+1. In an email compose window, look for the **Ollama AI** group in the ribbon (near the top, after the Clipboard group)
+2. Click **Settings** button
 3. A configuration form appears where you can:
    - **Select Model**: Choose from your installed Ollama models (fetched automatically)
    - **Custom Prompt**: Edit the system prompt to tailor AI responses
@@ -54,7 +56,7 @@ All settings are saved in Windows Registry under `HKCU\Software\OllamaAI`.
 
 1. Open a new email or reply to an existing one
 2. Write or review the email content
-3. Click the **Ollama AI** button in the toolbar
+3. In the ribbon, click **Process with AI** button in the **Ollama AI** group
 4. The AI analyzes your email and inserts a response/suggestion at the cursor position
 
 The button works on:
@@ -83,7 +85,7 @@ All communication is via HTTP to `localhost` — no data travels over the networ
 
 ## Technical Details
 
-- **File to import**: `ollama-outlook-ai.bas` (VBA standard module)
+- **Files to import**: `ollama-outlook-ai.bas` (main module) + `ollama-ribbon.cls` (ribbon class)
 
 - **Language**: VBA (Visual Basic for Applications)
 - **HTTP Client**: WinHttp.WinHttpRequest.5.1
