@@ -31,11 +31,13 @@ No cloud dependency. No API keys. No data leaves your machine.
 
 1. Open Outlook and press **Alt+F11** to open the VBA editor
 2. In the menu bar, go to **File > Import File**
-3. Select `ollama-outlook-ai.bas`
+3. Import **both** files (order doesn't matter):
+   - `ollama-outlook-ai.bas` (main module)
+   - `ollama-events.cls` (event handler class)
 4. Close the VBA editor and restart Outlook
 5. Go to **Tools > Macros > Ollama_Initialize** and click **Run** (only needed once)
 
-The "Ollama AI" button will now appear in email compose windows.
+The **Ollama AI** toolbar will now appear at the top of email compose windows.
 
 ## Configuration
 
