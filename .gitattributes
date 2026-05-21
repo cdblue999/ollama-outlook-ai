@@ -1,0 +1,8 @@
+# Force CRLF line endings for VBA files (required by Outlook VBA import)
+*.bas text eol=crlf
+*.vba text eol=crlf
+*.frm text eol=crlf
+*.cls text eol=crlf
+
+# Normalize everything else to LF (git default)
+* text=auto eol=lf
