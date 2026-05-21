@@ -1,7 +1,7 @@
 Attribute VB_Name = "OllamaAI"
 '====================================================================
 ' Ollama Outlook AI - Local AI Email Assistant for Outlook 2013
-' Version 1.0.0
+' Version 1.0.1
 '
 ' Recoded from key-assist-outlook (paulchi-intel) to use Ollama's
 ' OpenAI-compatible local API endpoint instead of Intel ExpertGPT.
@@ -20,7 +20,7 @@ Option Explicit
 ' Constants
 '====================================================================
 Private Const APP_NAME As String = "OllamaAI"
-Private Const APP_VERSION As String = "1.0.0"
+Private Const APP_VERSION As String = "1.0.1"
 Private Const OLLAMA_BASE_URL As String = "http://localhost:11434"
 Private Const OLLAMA_DEFAULT_MODEL As String = "llama3.2:3b"
 Private Const REQUEST_TIMEOUT_SECS As Long = 120
@@ -30,108 +30,16 @@ Private Const REG_PATH_ROOT As String = "HKEY_CURRENT_USER\Software\OllamaAI"
 ' Module-level variables
 '====================================================================
 Private m_Inspectors As Outlook.Inspectors
-Private m_OllamaHandler As COllamaAIHandler
-
-'====================================================================
-' Windows API declarations
-'====================================================================
-#If VBA7 And Win64 Then
-    Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
-        ByVal hwnd As LongPtr, ByVal lpOperation As String, _
-        ByVal lpFile As String, ByVal lpParameters As String, _
-        ByVal lpDirectory As String, ByVal nShowCmd As Long) As LongPtr
-#Else
-    Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
-        ByVal hwnd As Long, ByVal lpOperation As String, _
-        ByVal lpFile As String, ByVal lpParameters As String, _
-        ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
-#End If
-
-'====================================================================
-' CLASS: COllamaAIHandler - Handles Outlook inspector events
-'====================================================================
-' VBA class defined as a separate module-level implementation
-' using the WithEvents pattern embedded in this module.
-
 Private WithEvents m_InspectorEvents As Outlook.Inspectors
 
-Private Sub Class_Initialize()
-    ' No-op: initialization happens through SetInspectors
-End Sub
-
-Public Sub SetInspectors(ByVal inspectors As Outlook.Inspectors)
-    Set m_InspectorEvents = inspectors
-End Sub
-
-Private Sub m_InspectorEvents_NewInspector(ByVal Inspector As Outlook.Inspector)
-    On Error GoTo HandlerError
-    If Inspector.CurrentItem.Class = olMail Then
-        AddToolbarButton Inspector
-    End If
-    Exit Sub
-HandlerError:
-    ' Silently handle errors during inspector creation
-End Sub
-
-Private Sub AddToolbarButton(ByVal Inspector As Outlook.Inspector)
-    On Error Resume Next
-    Dim cmdBar As Office.CommandBar
-    Dim cmdBarPopup As Office.CommandBarPopup
-    Dim btn As Office.CommandBarButton
-    Dim existingBtn As Office.CommandBarButton
-    
-    ' Get the command bar for the inspector
-    Set cmdBar = Inspector.CommandBars("Menu Bar")
-    If cmdBar Is Nothing Then Exit Sub
-    
-    ' Check if button already exists
-    Set existingBtn = Nothing
-    On Error Resume Next
-    Set existingBtn = cmdBar.FindControl(Tag:="OllamaAI")
-    On Error GoTo 0
-    If Not existingBtn Is Nothing Then Exit Sub
-    
-    ' Add popup button to the toolbar
-    Set cmdBarPopup = cmdBar.Controls.Add(Type:=msoControlPopup, Temporary:=True)
-    If cmdBarPopup Is Nothing Then Exit Sub
-    
-    cmdBarPopup.Caption = "Ollama AI"
-    cmdBarPopup.Tag = "OllamaAI"
-    cmdBarPopup.TooltipText = "Ollama AI Email Assistant"
-    
-    ' Add "Process with AI" button
-    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
-    With btn
-        .Caption = "Process with AI"
-        .Tag = "OllamaAI_Process"
-        .OnAction = "'" & APP_NAME & ".Ollama_ProcessWithAI'"
-        .TooltipText = "Send email to Ollama AI for processing"
-        .Style = msoButtonCaption
-    End With
-    
-    ' Add separator
-    cmdBarPopup.Controls.Add Type:=msoControlSeparator
-    
-    ' Add "Settings" button
-    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
-    With btn
-        .Caption = "Settings..."
-        .Tag = "OllamaAI_Settings"
-        .OnAction = "'" & APP_NAME & ".Ollama_ShowConfigurationForm'"
-        .TooltipText = "Configure Ollama AI settings"
-        .Style = msoButtonCaption
-    End With
-    
-    ' Add "About" button
-    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
-    With btn
-        .Caption = "About..."
-        .Tag = "OllamaAI_About"
-        .OnAction = "'" & APP_NAME & ".Ollama_ShowAboutForm'"
-        .TooltipText = "About Ollama Outlook AI"
-        .Style = msoButtonCaption
-    End With
-End Sub
+'====================================================================
+' Windows API - single line declarations (no continuations)
+'====================================================================
+#If VBA7 And Win64 Then
+    Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hwnd As LongPtr, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As String, ByVal lpDirectory As String, ByVal nShowCmd As Long) As LongPtr
+#Else
+    Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hwnd As Long, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As String, ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
+#End If
 
 '====================================================================
 ' Outlook Startup - Called automatically
@@ -145,18 +53,10 @@ End Sub
 '====================================================================
 Public Sub Ollama_Initialize()
     On Error Resume Next
-    Dim olApp As Outlook.Application
-    Set olApp = Outlook.Application
     
-    Set m_Inspectors = olApp.Inspectors
+    Set m_Inspectors = Outlook.Application.Inspectors
+    Set m_InspectorEvents = m_Inspectors
     
-    ' Create handler class and wire up events
-    Dim handler As COllamaAIHandler
-    Set handler = New COllamaAIHandler
-    handler.SetInspectors m_Inspectors
-    Set m_OllamaHandler = handler
-    
-    ' Ensure default settings exist
     Dim testVal As String
     testVal = GetRegSetting("Model", "")
     If testVal = "" Then
@@ -164,6 +64,71 @@ Public Sub Ollama_Initialize()
         SaveRegSetting "Prompt", "You are a helpful email assistant. Analyze the email content and respond professionally. Keep your response concise and well-structured."
         SaveRegSetting "Timeout", CStr(REQUEST_TIMEOUT_SECS)
     End If
+End Sub
+
+'====================================================================
+' Inspector Event Handler
+'====================================================================
+Private Sub m_InspectorEvents_NewInspector(ByVal Inspector As Outlook.Inspector)
+    On Error GoTo HandlerError
+    If Inspector.CurrentItem.Class = olMail Then
+        AddToolbarButton Inspector
+    End If
+    Exit Sub
+HandlerError:
+End Sub
+
+'====================================================================
+' Toolbar Button Management
+'====================================================================
+Private Sub AddToolbarButton(ByVal Inspector As Outlook.Inspector)
+    On Error Resume Next
+    Dim cmdBar As Office.CommandBar
+    Dim cmdBarPopup As Office.CommandBarPopup
+    Dim btn As Office.CommandBarButton
+    Dim existingBtn As Office.CommandBarButton
+    
+    Set cmdBar = Inspector.CommandBars("Menu Bar")
+    If cmdBar Is Nothing Then Exit Sub
+    
+    Set existingBtn = cmdBar.FindControl(Tag:="OllamaAI")
+    If Not existingBtn Is Nothing Then Exit Sub
+    
+    Set cmdBarPopup = cmdBar.Controls.Add(Type:=msoControlPopup, Temporary:=True)
+    If cmdBarPopup Is Nothing Then Exit Sub
+    
+    cmdBarPopup.Caption = "Ollama AI"
+    cmdBarPopup.Tag = "OllamaAI"
+    cmdBarPopup.TooltipText = "Ollama AI Email Assistant"
+    
+    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "Process with AI"
+        .Tag = "OllamaAI_Process"
+        .OnAction = "'" & APP_NAME & ".Ollama_ProcessWithAI'"
+        .TooltipText = "Send email to Ollama AI for processing"
+        .Style = msoButtonCaption
+    End With
+    
+    cmdBarPopup.Controls.Add Type:=msoControlSeparator
+    
+    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "Settings..."
+        .Tag = "OllamaAI_Settings"
+        .OnAction = "'" & APP_NAME & ".Ollama_ShowConfigurationForm'"
+        .TooltipText = "Configure Ollama AI settings"
+        .Style = msoButtonCaption
+    End With
+    
+    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "About..."
+        .Tag = "OllamaAI_About"
+        .OnAction = "'" & APP_NAME & ".Ollama_ShowAboutForm'"
+        .TooltipText = "About Ollama Outlook AI"
+        .Style = msoButtonCaption
+    End With
 End Sub
 
 '====================================================================
@@ -177,121 +142,95 @@ Public Sub Ollama_ShowConfigurationForm()
     Dim currentTimeout As String
     Dim psScript As String
     
-    ' Load current settings
     currentModel = GetRegSetting("Model", OLLAMA_DEFAULT_MODEL)
     currentPrompt = GetRegSetting("Prompt", "")
     currentTimeout = GetRegSetting("Timeout", CStr(REQUEST_TIMEOUT_SECS))
     
-    ' Create PowerShell script for the configuration form
-    psScript = "$models = @(); " & vbCrLf
-    psScript = psScript & "try { " & vbCrLf
-    psScript = psScript & "  $resp = Invoke-RestMethod -Uri 'http://localhost:11434/api/tags' -TimeoutSec 5 -ErrorAction Stop; " & vbCrLf
-    psScript = psScript & "  $models = $resp.models | ForEach-Object { $_.name }; " & vbCrLf
-    psScript = psScript & "} catch { $models = @('" & currentModel & "') }; " & vbCrLf
-    psScript = psScript & "if ($models.Count -eq 0) { $models = @('" & currentModel & "') }; " & vbCrLf
-    psScript = psScript & "$defaultModel = '" & EscapeForPS(currentModel) & "'; " & vbCrLf
-    psScript = psScript & "$defaultPrompt = '" & EscapeForPS(currentPrompt) & "'; " & vbCrLf
-    psScript = psScript & "$defaultTimeout = " & currentTimeout & "; " & vbCrLf
-    psScript = psScript & "$selectedModel = $models[0]; " & vbCrLf
-    psScript = psScript & "Add-Type -AssemblyName System.Windows.Forms; " & vbCrLf
-    psScript = psScript & "Add-Type -AssemblyName System.Drawing; " & vbCrLf
-    psScript = psScript & "$form = New-Object System.Windows.Forms.Form; " & vbCrLf
-    psScript = psScript & "$form.Text = 'Ollama AI - Settings'; " & vbCrLf
-    psScript = psScript & "$form.Size = New-Object System.Drawing.Size(520,420); " & vbCrLf
-    psScript = psScript & "$form.StartPosition = 'CenterScreen'; " & vbCrLf
-    psScript = psScript & "$form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $pid).MainModule.FileName); " & vbCrLf
-    psScript = psScript & "$form.FormBorderStyle = 'FixedDialog'; " & vbCrLf
-    psScript = psScript & "$form.MaximizeBox = $false; " & vbCrLf
+    ' Must build the PowerShell script as a single string block
+    ' Write to temp file instead (avoids VBA string length issues)
+    Dim psCode As String
+    psCode = "$models = @(); "
+    psCode = psCode & "try { "
+    psCode = psCode & "$resp = Invoke-RestMethod -Uri 'http://localhost:11434/api/tags' -TimeoutSec 5 -ErrorAction Stop; "
+    psCode = psCode & "$models = $resp.models | ForEach-Object { $_.name }; "
+    psCode = psCode & "} catch { $models = @('" & EscapeForPS(currentModel) & "') }; "
+    psCode = psCode & "if ($models.Count -eq 0) { $models = @('" & EscapeForPS(currentModel) & "') }; "
+    psCode = psCode & "$dm = '" & EscapeForPS(currentModel) & "'; "
+    psCode = psCode & "$dp = '" & EscapeForPS(currentPrompt) & "'; "
+    psCode = psCode & "$dt = " & currentTimeout & "; "
+    psCode = psCode & "Add-Type -AssemblyName System.Windows.Forms; "
+    psCode = psCode & "Add-Type -AssemblyName System.Drawing; "
+    psCode = psCode & "$form = New-Object System.Windows.Forms.Form; "
+    psCode = psCode & "$form.Text = 'Ollama AI - Settings'; "
+    psCode = psCode & "$form.Size = New-Object System.Drawing.Size(520,420); "
+    psCode = psCode & "$form.StartPosition = 'CenterScreen'; "
+    psCode = psCode & "$form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $pid).MainModule.FileName); "
+    psCode = psCode & "$form.FormBorderStyle = 'FixedDialog'; "
+    psCode = psCode & "$form.MaximizeBox = $false; "
+    psCode = psCode & "$lblModel = New-Object System.Windows.Forms.Label; "
+    psCode = psCode & "$lblModel.Text = 'AI Model:'; "
+    psCode = psCode & "$lblModel.Location = New-Object System.Drawing.Point(15,20); "
+    psCode = psCode & "$lblModel.Size = New-Object System.Drawing.Size(100,25); "
+    psCode = psCode & "$form.Controls.Add($lblModel); "
+    psCode = psCode & "$cmbModel = New-Object System.Windows.Forms.ComboBox; "
+    psCode = psCode & "$cmbModel.Location = New-Object System.Drawing.Point(120,18); "
+    psCode = psCode & "$cmbModel.Size = New-Object System.Drawing.Size(370,25); "
+    psCode = psCode & "$cmbModel.DropDownStyle = 'DropDownList'; "
+    psCode = psCode & "foreach ($m in $models) { [void]$cmbModel.Items.Add($m); if ($m -eq $dm) { $cmbModel.SelectedItem = $m } }; "
+    psCode = psCode & "if ($cmbModel.SelectedIndex -eq -1 -and $cmbModel.Items.Count -gt 0) { $cmbModel.SelectedIndex = 0 }; "
+    psCode = psCode & "$form.Controls.Add($cmbModel); "
+    psCode = psCode & "$lblPrompt = New-Object System.Windows.Forms.Label; "
+    psCode = psCode & "$lblPrompt.Text = 'System Prompt:'; "
+    psCode = psCode & "$lblPrompt.Location = New-Object System.Drawing.Point(15,55); "
+    psCode = psCode & "$lblPrompt.Size = New-Object System.Drawing.Size(100,25); "
+    psCode = psCode & "$form.Controls.Add($lblPrompt); "
+    psCode = psCode & "$txtPrompt = New-Object System.Windows.Forms.TextBox; "
+    psCode = psCode & "$txtPrompt.Location = New-Object System.Drawing.Point(15,80); "
+    psCode = psCode & "$txtPrompt.Size = New-Object System.Drawing.Size(475,120); "
+    psCode = psCode & "$txtPrompt.Multiline = $true; "
+    psCode = psCode & "$txtPrompt.ScrollBars = 'Vertical'; "
+    psCode = psCode & "$txtPrompt.Text = $dp; "
+    psCode = psCode & "$form.Controls.Add($txtPrompt); "
+    psCode = psCode & "$lblTimeout = New-Object System.Windows.Forms.Label; "
+    psCode = psCode & "$lblTimeout.Text = 'Timeout (seconds):'; "
+    psCode = psCode & "$lblTimeout.Location = New-Object System.Drawing.Point(15,215); "
+    psCode = psCode & "$lblTimeout.Size = New-Object System.Drawing.Size(120,25); "
+    psCode = psCode & "$form.Controls.Add($lblTimeout); "
+    psCode = psCode & "$nudTimeout = New-Object System.Windows.Forms.NumericUpDown; "
+    psCode = psCode & "$nudTimeout.Location = New-Object System.Drawing.Point(140,213); "
+    psCode = psCode & "$nudTimeout.Size = New-Object System.Drawing.Size(80,25); "
+    psCode = psCode & "$nudTimeout.Minimum = 10; "
+    psCode = psCode & "$nudTimeout.Maximum = 600; "
+    psCode = psCode & "$nudTimeout.Value = $dt; "
+    psCode = psCode & "$form.Controls.Add($nudTimeout); "
+    psCode = psCode & "$lblInfo = New-Object System.Windows.Forms.Label; "
+    psCode = psCode & "$lblInfo.Text = 'Settings are saved to Windows Registry (HKCU\Software\OllamaAI).'; "
+    psCode = psCode & "$lblInfo.Location = New-Object System.Drawing.Point(15,255); "
+    psCode = psCode & "$lblInfo.Size = New-Object System.Drawing.Size(475,25); "
+    psCode = psCode & "$lblInfo.ForeColor = 'Gray'; "
+    psCode = psCode & "$form.Controls.Add($lblInfo); "
+    psCode = psCode & "$btnOK = New-Object System.Windows.Forms.Button; "
+    psCode = psCode & "$btnOK.Text = 'Save'; "
+    psCode = psCode & "$btnOK.Location = New-Object System.Drawing.Point(160,300); "
+    psCode = psCode & "$btnOK.Size = New-Object System.Drawing.Size(90,30); "
+    psCode = psCode & "$btnOK.Add_Click({ $form.Tag = $cmbModel.SelectedItem + '|' + $txtPrompt.Text + '|' + $nudTimeout.Value; $form.DialogResult = 'OK'; $form.Close() }); "
+    psCode = psCode & "$form.Controls.Add($btnOK); "
+    psCode = psCode & "$btnCancel = New-Object System.Windows.Forms.Button; "
+    psCode = psCode & "$btnCancel.Text = 'Cancel'; "
+    psCode = psCode & "$btnCancel.Location = New-Object System.Drawing.Point(270,300); "
+    psCode = psCode & "$btnCancel.Size = New-Object System.Drawing.Size(90,30); "
+    psCode = psCode & "$btnCancel.Add_Click({ $form.DialogResult = 'Cancel'; $form.Close() }); "
+    psCode = psCode & "$form.Controls.Add($btnCancel); "
+    psCode = psCode & "$result = $form.ShowDialog(); "
+    psCode = psCode & "if ($result -eq 'OK') { "
+    psCode = psCode & "$parts = $form.Tag -split '\|'; "
+    psCode = psCode & "Write-Output $parts[0]; "
+    psCode = psCode & "Write-Output $parts[1]; "
+    psCode = psCode & "Write-Output ([int]$parts[2]); "
+    psCode = psCode & "} else { Write-Output 'CANCELLED' }"
     
-    ' Model selection
-    psScript = psScript & "$lblModel = New-Object System.Windows.Forms.Label; " & vbCrLf
-    psScript = psScript & "$lblModel.Text = 'AI Model:'; " & vbCrLf
-    psScript = psScript & "$lblModel.Location = New-Object System.Drawing.Point(15,20); " & vbCrLf
-    psScript = psScript & "$lblModel.Size = New-Object System.Drawing.Size(100,25); " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($lblModel); " & vbCrLf
-    
-    psScript = psScript & "$cmbModel = New-Object System.Windows.Forms.ComboBox; " & vbCrLf
-    psScript = psScript & "$cmbModel.Location = New-Object System.Drawing.Point(120,18); " & vbCrLf
-    psScript = psScript & "$cmbModel.Size = New-Object System.Drawing.Size(370,25); " & vbCrLf
-    psScript = psScript & "$cmbModel.DropDownStyle = 'DropDownList'; " & vbCrLf
-    psScript = psScript & "foreach ($m in $models) { [void]$cmbModel.Items.Add($m); " & vbCrLf
-    psScript = psScript & "  if ($m -eq $defaultModel) { $cmbModel.SelectedItem = $m } }; " & vbCrLf
-    psScript = psScript & "if ($cmbModel.SelectedIndex -eq -1 -and $cmbModel.Items.Count -gt 0) { $cmbModel.SelectedIndex = 0 }; " & vbCrLf
-    psScript = psScript & "$selectedModel = $cmbModel.SelectedItem; " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($cmbModel); " & vbCrLf
-    
-    ' Prompt label
-    psScript = psScript & "$lblPrompt = New-Object System.Windows.Forms.Label; " & vbCrLf
-    psScript = psScript & "$lblPrompt.Text = 'System Prompt:'; " & vbCrLf
-    psScript = psScript & "$lblPrompt.Location = New-Object System.Drawing.Point(15,55); " & vbCrLf
-    psScript = psScript & "$lblPrompt.Size = New-Object System.Drawing.Size(100,25); " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($lblPrompt); " & vbCrLf
-    
-    ' Prompt textbox
-    psScript = psScript & "$txtPrompt = New-Object System.Windows.Forms.TextBox; " & vbCrLf
-    psScript = psScript & "$txtPrompt.Location = New-Object System.Drawing.Point(15,80); " & vbCrLf
-    psScript = psScript & "$txtPrompt.Size = New-Object System.Drawing.Size(475,120); " & vbCrLf
-    psScript = psScript & "$txtPrompt.Multiline = $true; " & vbCrLf
-    psScript = psScript & "$txtPrompt.ScrollBars = 'Vertical'; " & vbCrLf
-    psScript = psScript & "$txtPrompt.Text = $defaultPrompt; " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($txtPrompt); " & vbCrLf
-    
-    ' Timeout label
-    psScript = psScript & "$lblTimeout = New-Object System.Windows.Forms.Label; " & vbCrLf
-    psScript = psScript & "$lblTimeout.Text = 'Timeout (seconds):'; " & vbCrLf
-    psScript = psScript & "$lblTimeout.Location = New-Object System.Drawing.Point(15,215); " & vbCrLf
-    psScript = psScript & "$lblTimeout.Size = New-Object System.Drawing.Size(120,25); " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($lblTimeout); " & vbCrLf
-    
-    ' Timeout nud
-    psScript = psScript & "$nudTimeout = New-Object System.Windows.Forms.NumericUpDown; " & vbCrLf
-    psScript = psScript & "$nudTimeout.Location = New-Object System.Drawing.Point(140,213); " & vbCrLf
-    psScript = psScript & "$nudTimeout.Size = New-Object System.Drawing.Size(80,25); " & vbCrLf
-    psScript = psScript & "$nudTimeout.Minimum = 10; " & vbCrLf
-    psScript = psScript & "$nudTimeout.Maximum = 600; " & vbCrLf
-    psScript = psScript & "$nudTimeout.Value = $defaultTimeout; " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($nudTimeout); " & vbCrLf
-    
-    ' Info label
-    psScript = psScript & "$lblInfo = New-Object System.Windows.Forms.Label; " & vbCrLf
-    psScript = psScript & "$lblInfo.Text = 'Settings are saved to Windows Registry (HKCU\Software\OllamaAI).'; " & vbCrLf
-    psScript = psScript & "$lblInfo.Location = New-Object System.Drawing.Point(15,255); " & vbCrLf
-    psScript = psScript & "$lblInfo.Size = New-Object System.Drawing.Size(475,25); " & vbCrLf
-    psScript = psScript & "$lblInfo.ForeColor = 'Gray'; " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($lblInfo); " & vbCrLf
-    
-    ' OK button
-    psScript = psScript & "$btnOK = New-Object System.Windows.Forms.Button; " & vbCrLf
-    psScript = psScript & "$btnOK.Text = 'Save'; " & vbCrLf
-    psScript = psScript & "$btnOK.Location = New-Object System.Drawing.Point(160,300); " & vbCrLf
-    psScript = psScript & "$btnOK.Size = New-Object System.Drawing.Size(90,30); " & vbCrLf
-    psScript = psScript & "$btnOK.Add_Click({ " & vbCrLf
-    psScript = psScript & "  $selectedModel = $cmbModel.SelectedItem; " & vbCrLf
-    psScript = psScript & "  $form.Tag = $selectedModel + '|' + $txtPrompt.Text + '|' + $nudTimeout.Value; " & vbCrLf
-    psScript = psScript & "  $form.DialogResult = 'OK'; " & vbCrLf
-    psScript = psScript & "  $form.Close() }); " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($btnOK); " & vbCrLf
-    
-    ' Cancel button
-    psScript = psScript & "$btnCancel = New-Object System.Windows.Forms.Button; " & vbCrLf
-    psScript = psScript & "$btnCancel.Text = 'Cancel'; " & vbCrLf
-    psScript = psScript & "$btnCancel.Location = New-Object System.Drawing.Point(270,300); " & vbCrLf
-    psScript = psScript & "$btnCancel.Size = New-Object System.Drawing.Size(90,30); " & vbCrLf
-    psScript = psScript & "$btnCancel.Add_Click({ $form.DialogResult = 'Cancel'; $form.Close() }); " & vbCrLf
-    psScript = psScript & "$form.Controls.Add($btnCancel); " & vbCrLf
-    
-    ' Show form
-    psScript = psScript & "$result = $form.ShowDialog(); " & vbCrLf
-    psScript = psScript & "if ($result -eq 'OK') { " & vbCrLf
-    psScript = psScript & "  $parts = $form.Tag -split '\|'; " & vbCrLf
-    psScript = psScript & "  Write-Output $parts[0]; " & vbCrLf
-    psScript = psScript & "  Write-Output $parts[1]; " & vbCrLf
-    psScript = psScript & "  Write-Output ([int]$parts[2]); " & vbCrLf
-    psScript = psScript & "} else { Write-Output 'CANCELLED' }"
-    
-    ' Execute PowerShell and parse results
     Dim result As String
-    result = RunPowerShell(psScript)
+    result = RunPowerShell(psCode)
     
     If result <> "CANCELLED" And result <> "" Then
         Dim lines() As String
@@ -328,12 +267,13 @@ End Sub
 ' About Form
 '====================================================================
 Public Sub Ollama_ShowAboutForm()
-    MsgBox APP_NAME & " v" & APP_VERSION & vbCrLf & vbCrLf & _
-        "Local AI Email Assistant for Outlook" & vbCrLf & _
-        "Powered by Ollama" & vbCrLf & vbCrLf & _
-        "All processing is fully local." & vbCrLf & _
-        "No data leaves your machine.", _
-        vbInformation, "About " & APP_NAME
+    Dim msg As String
+    msg = APP_NAME & " v" & APP_VERSION & vbCrLf & vbCrLf
+    msg = msg & "Local AI Email Assistant for Outlook" & vbCrLf
+    msg = msg & "Powered by Ollama" & vbCrLf & vbCrLf
+    msg = msg & "All processing is fully local." & vbCrLf
+    msg = msg & "No data leaves your machine."
+    MsgBox msg, vbInformation, "About " & APP_NAME
 End Sub
 
 '====================================================================
@@ -345,7 +285,7 @@ Public Function Ollama_IsOllamaRunning() As Boolean
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     http.Open "GET", OLLAMA_BASE_URL & "/api/tags", False
     http.SetTimeouts 5000, 5000, 5000, 5000
-    http.SetOption 0, "Ollama-Outlook-AI/1.0" ' UserAgent
+    http.SetOption 0, "Ollama-Outlook-AI/1.0"
     http.Send
     Ollama_IsOllamaRunning = (http.Status = 200)
     Exit Function
@@ -368,19 +308,14 @@ Public Sub Ollama_RefreshModelsList()
     If http.Status = 200 Then
         Dim json As String
         json = http.ResponseText
-        
-        ' Parse model names from JSON response
-        ' Expected: {"models":[{"name":"llama3.2:3b","modified_at":"...","size":...}]}
         Dim models As String
         models = ExtractModelNames(json)
-        
         If models <> "" Then
             SaveRegSetting "AvailableModels", models
         Else
             SaveRegSetting "AvailableModels", OLLAMA_DEFAULT_MODEL
         End If
     Else
-        ' Fall back to default model if Ollama not available
         SaveRegSetting "AvailableModels", OLLAMA_DEFAULT_MODEL
     End If
     Exit Sub
@@ -397,8 +332,6 @@ Private Function ExtractModelNames(ByVal json As String) As String
     Dim result As String
     result = ""
     
-    ' Simple JSON parser for known structure
-    ' Find "models":[{ ... "name":"..." ... }]
     Dim modelsStart As Long
     modelsStart = InStr(json, """models"":")
     If modelsStart = 0 Then
@@ -406,7 +339,6 @@ Private Function ExtractModelNames(ByVal json As String) As String
         Exit Function
     End If
     
-    ' Extract each "name":"..." value
     Dim searchPos As Long
     Dim nameStart As Long
     Dim nameEnd As Long
@@ -416,15 +348,12 @@ Private Function ExtractModelNames(ByVal json As String) As String
     Do
         nameStart = InStr(searchPos, json, """name"":""")
         If nameStart = 0 Or nameStart > modelsStart + 5000 Then Exit Do
-        
-        nameStart = nameStart + 8 ' Skip past "name":"
+        nameStart = nameStart + 8
         nameEnd = InStr(nameStart, json, """")
         If nameEnd = 0 Then Exit Do
-        
         modelName = Mid(json, nameStart, nameEnd - nameStart)
         If result <> "" Then result = result & ","
         result = result & modelName
-        
         searchPos = nameEnd + 1
     Loop
     
@@ -438,21 +367,19 @@ End Function
 Public Sub Ollama_ProcessWithAI()
     On Error GoTo ProcessError
     
-    ' Check if Ollama is running
     If Not Ollama_IsOllamaRunning() Then
-        MsgBox "Ollama is not running." & vbCrLf & vbCrLf & _
-            "Please start Ollama and try again.", _
-            vbExclamation, APP_NAME
+        Dim msgOff As String
+        msgOff = "Ollama is not running." & vbCrLf & vbCrLf & "Please start Ollama and try again."
+        MsgBox msgOff, vbExclamation, APP_NAME
         Exit Sub
     End If
     
-    ' Get active inspector and email
     Dim insp As Outlook.Inspector
     Set insp = GetActiveInspector()
     If insp Is Nothing Then
-        MsgBox "No email composition window detected." & vbCrLf & _
-            "Please open a new email or reply to an existing one.", _
-            vbExclamation, APP_NAME
+        Dim msgNoInsp As String
+        msgNoInsp = "No email composition window detected." & vbCrLf & "Please open a new email or reply to an existing one."
+        MsgBox msgNoInsp, vbExclamation, APP_NAME
         Exit Sub
     End If
     
@@ -463,20 +390,18 @@ Public Sub Ollama_ProcessWithAI()
         Exit Sub
     End If
     
-    ' Get email content
     Dim subject As String
     Dim body As String
     subject = mail.Subject
     body = mail.Body
     
     If body = "" Then
-        MsgBox "The email body is empty." & vbCrLf & _
-            "Please write some content in your email first.", _
-            vbExclamation, APP_NAME
+        Dim msgEmpty As String
+        msgEmpty = "The email body is empty." & vbCrLf & "Please write some content in your email first."
+        MsgBox msgEmpty, vbExclamation, APP_NAME
         Exit Sub
     End If
     
-    ' Get settings from registry
     Dim modelName As String
     Dim systemPrompt As String
     Dim timeoutSecs As Long
@@ -485,26 +410,18 @@ Public Sub Ollama_ProcessWithAI()
     systemPrompt = GetRegSetting("Prompt", "You are a helpful email assistant. Analyze the email content and respond professionally. Keep your response concise and well-structured.")
     timeoutSecs = CLng(GetRegSetting("Timeout", CStr(REQUEST_TIMEOUT_SECS)))
     
-    ' Build user content with context
     Dim userContent As String
     userContent = "Email Subject: " & subject & vbCrLf & vbCrLf & "Email Body:" & vbCrLf & body
     
-    ' Show progress to user
-    Dim progressMsg As String
-    progressMsg = "Processing email with " & modelName & "..." & vbCrLf & _
-        "This may take a moment for local AI inference."
-    
-    ' Process the request
     Dim response As String
     response = Ollama_ProcessRequest(systemPrompt, userContent, modelName, timeoutSecs)
     
     If response <> "" Then
-        ' Insert response into email
         Ollama_InsertResponseIntoEmail response, insp
     Else
-        MsgBox "No response received from Ollama." & vbCrLf & _
-            "Check that your model is downloaded and try again.", _
-            vbExclamation, APP_NAME
+        Dim msgNoResp As String
+        msgNoResp = "No response received from Ollama." & vbCrLf & "Check that your model is downloaded and try again."
+        MsgBox msgNoResp, vbExclamation, APP_NAME
     End If
     
     Exit Sub
@@ -521,12 +438,10 @@ Public Sub Ollama_InsertResponseIntoEmail(ByVal responseText As String, ByVal in
     
     If insp Is Nothing Then Exit Sub
     
-    ' Get the Word editor to insert at cursor position
     Dim wordDoc As Object
     Set wordDoc = insp.WordEditor
     
     If wordDoc Is Nothing Then
-        ' Fallback: replace selection
         Dim mail As Outlook.MailItem
         Set mail = insp.CurrentItem
         If Not mail Is Nothing Then
@@ -535,7 +450,6 @@ Public Sub Ollama_InsertResponseIntoEmail(ByVal responseText As String, ByVal in
         Exit Sub
     End If
     
-    ' Insert at current cursor position in the Word editor
     Dim selection As Object
     Set selection = wordDoc.Application.Selection
     If Not selection Is Nothing Then
@@ -546,13 +460,9 @@ End Sub
 '====================================================================
 ' API Communication - Send request to Ollama
 '====================================================================
-Private Function Ollama_ProcessRequest(ByVal systemPrompt As String, _
-                                       ByVal userContent As String, _
-                                       ByVal modelName As String, _
-                                       ByVal timeoutSecs As Long) As String
+Private Function Ollama_ProcessRequest(ByVal systemPrompt As String, ByVal userContent As String, ByVal modelName As String, ByVal timeoutSecs As Long) As String
     On Error GoTo RequestError
     
-    ' Build the OpenAI-compatible payload
     Dim payload As String
     payload = "{"
     payload = payload & """model"":""" & EscapeJson(modelName) & ""","
@@ -563,7 +473,6 @@ Private Function Ollama_ProcessRequest(ByVal systemPrompt As String, _
     payload = payload & """stream"":false"
     payload = payload & "}"
     
-    ' Send request
     Dim url As String
     url = OLLAMA_BASE_URL & "/v1/chat/completions"
     
@@ -575,11 +484,8 @@ Private Function Ollama_ProcessRequest(ByVal systemPrompt As String, _
         Exit Function
     End If
     
-    ' Parse response to extract content
-    ' Expected: {"id":"...","choices":[{"index":0,"message":{"role":"assistant","content":"..."}},...]}
     Dim content As String
     content = ExtractResponseContent(response)
-    
     Ollama_ProcessRequest = content
     Exit Function
     
@@ -590,39 +496,26 @@ End Function
 '====================================================================
 ' HTTP Request using WinHttp
 '====================================================================
-Private Function Ollama_SendHttpRequest(ByVal url As String, _
-                                        ByVal method As String, _
-                                        ByVal payload As String, _
-                                        ByVal timeoutSecs As Long) As String
+Private Function Ollama_SendHttpRequest(ByVal url As String, ByVal method As String, ByVal payload As String, ByVal timeoutSecs As Long) As String
     On Error GoTo HttpError
     
     Dim http As Object
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     
-    ' Convert timeout to milliseconds
     Dim timeoutMs As Long
     timeoutMs = timeoutSecs * 1000
     
-    ' Open connection
     http.Open method, url, False
-    
-    ' Set timeouts (resolve, connect, send, receive)
     http.SetTimeouts 10000, 15000, timeoutMs, timeoutMs
-    
-    ' Set user agent
     http.SetOption 0, "Ollama-Outlook-AI/1.0"
-    
-    ' Set headers
     http.SetRequestHeader "Content-Type", "application/json"
     
-    ' Send request
     If method = "POST" Then
         http.Send payload
     Else
         http.Send
     End If
     
-    ' Check response
     If http.Status = 200 Then
         Ollama_SendHttpRequest = http.ResponseText
     Else
@@ -641,25 +534,18 @@ End Function
 Private Function ExtractResponseContent(ByVal json As String) As String
     On Error Resume Next
     
-    ' Parse: find "choices":[{"index":0,"message":{"role":"assistant","content":"..."}}]
-    ' Strategy: find "content":" then extract until next "
-    
     Dim contentMarker As String
     contentMarker = """content"":"""
     
-    ' Find the content field in the choices array (skip system message content)
-    ' First find "choices":[{"index":0,"message":{
     Dim msgStart As Long
     msgStart = InStr(json, """message"":{")
     If msgStart = 0 Then
-        ' Try direct content parse
         msgStart = InStr(json, contentMarker)
         If msgStart = 0 Then
             ExtractResponseContent = ""
             Exit Function
         End If
     Else
-        ' Find content after message
         msgStart = InStr(msgStart, json, contentMarker)
         If msgStart = 0 Then
             ExtractResponseContent = ""
@@ -673,21 +559,12 @@ Private Function ExtractResponseContent(ByVal json As String) As String
     Dim contentEnd As Long
     contentEnd = contentStart
     
-    ' Find the closing quote (handle escaped quotes)
-    Dim depth As Long
-    depth = 0
     Do While contentEnd <= Len(json)
         Dim ch As String
         ch = Mid(json, contentEnd, 1)
-        
-        If ch = "\"" Then
-            ' Escaped quote - skip 2 chars
-            contentEnd = contentEnd + 2
-        ElseIf ch = "\" Then
-            ' Escaped character - skip 2 chars
+        If ch = "\" Then
             contentEnd = contentEnd + 2
         ElseIf ch = """" Then
-            ' Unescaped closing quote
             Exit Do
         Else
             contentEnd = contentEnd + 1
@@ -696,7 +573,6 @@ Private Function ExtractResponseContent(ByVal json As String) As String
     
     If contentEnd > contentStart Then
         ExtractResponseContent = Mid(json, contentStart, contentEnd - contentStart)
-        ' Unescape JSON special characters
         ExtractResponseContent = Replace(ExtractResponseContent, "\\n", vbCrLf)
         ExtractResponseContent = Replace(ExtractResponseContent, "\\t", vbTab)
         ExtractResponseContent = Replace(ExtractResponseContent, "\\r", vbCr)
@@ -713,17 +589,12 @@ End Function
 Private Function EscapeJson(ByVal text As String) As String
     Dim result As String
     result = text
-    
-    ' Escape backslashes first
     result = Replace(result, "\", "\\")
-    ' Escape quotes
     result = Replace(result, """", "\""")
-    ' Escape control characters
     result = Replace(result, vbCrLf, "\\n")
     result = Replace(result, vbCr, "\\r")
     result = Replace(result, vbLf, "\\n")
     result = Replace(result, vbTab, "\\t")
-    
     EscapeJson = result
 End Function
 
@@ -731,7 +602,6 @@ End Function
 ' Escape strings for PowerShell single-quoted strings
 '====================================================================
 Private Function EscapeForPS(ByVal text As String) As String
-    ' In PowerShell single-quoted strings, only ' needs escaping (doubled)
     Dim result As String
     result = Replace(text, "'", "''")
     EscapeForPS = result
@@ -761,8 +631,6 @@ Private Sub SaveRegSetting(ByVal key As String, ByVal value As String)
     Set ws = CreateObject("WScript.Shell")
     Dim regPath As String
     regPath = REG_PATH_ROOT & "\" & key
-    
-    ' Create path if it doesn't exist
     ws.RegWrite REG_PATH_ROOT, "", "REG_SZ"
     ws.RegWrite regPath, value, "REG_SZ"
 End Sub
@@ -773,13 +641,11 @@ End Sub
 Private Function RunPowerShell(ByVal script As String) As String
     On Error GoTo PSError
     
-    ' Create temporary script file
     Dim tempFile As String
     Dim tempDir As String
     tempDir = Environ("TEMP")
     tempFile = tempDir & "\ollama_config.ps1"
     
-    ' Write script to file
     Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
     Dim file As Object
@@ -787,7 +653,6 @@ Private Function RunPowerShell(ByVal script As String) As String
     file.Write script
     file.Close
     
-    ' Execute PowerShell
     Dim ws As Object
     Set ws = CreateObject("WScript.Shell")
     Dim exec As Object
@@ -796,7 +661,6 @@ Private Function RunPowerShell(ByVal script As String) As String
     cmd = "powershell.exe -ExecutionPolicy Bypass -File """ & tempFile & """"
     Set exec = ws.Exec(cmd)
     
-    ' Wait for completion with timeout
     Dim startTime As Double
     startTime = Timer
     Do While exec.Status = 0
@@ -807,13 +671,11 @@ Private Function RunPowerShell(ByVal script As String) As String
         End If
     Loop
     
-    ' Read output
     Dim output As String
     If exec.Status <> 0 Then
         output = exec.StdOut.ReadAll()
     End If
     
-    ' Clean up temp file
     On Error Resume Next
     fso.DeleteFile tempFile
     On Error GoTo 0
@@ -830,9 +692,7 @@ End Function
 '====================================================================
 Private Function GetActiveInspector() As Outlook.Inspector
     On Error Resume Next
-    Dim olApp As Outlook.Application
-    Set olApp = Outlook.Application
-    Set GetActiveInspector = olApp.ActiveInspector
+    Set GetActiveInspector = Outlook.Application.ActiveInspector
 End Function
 
 '====================================================================
@@ -843,34 +703,6 @@ Private Function NzStr(ByVal value As Variant) As String
         NzStr = ""
     Else
         NzStr = CStr(value)
-    End If
-End Function
-
-'====================================================================
-' Utility: Get email content from inspector
-'====================================================================
-Private Function GetEmailBody(ByVal inspector As Outlook.Inspector) As String
-    On Error Resume Next
-    Dim mail As Outlook.MailItem
-    Set mail = inspector.CurrentItem
-    If Not mail Is Nothing Then
-        GetEmailBody = mail.Body
-    Else
-        GetEmailBody = ""
-    End If
-End Function
-
-'====================================================================
-' Utility: Get email subject from inspector
-'====================================================================
-Private Function GetEmailSubject(ByVal inspector As Outlook.Inspector) As String
-    On Error Resume Next
-    Dim mail As Outlook.MailItem
-    Set mail = inspector.CurrentItem
-    If Not mail Is Nothing Then
-        GetEmailSubject = mail.Subject
-    Else
-        GetEmailSubject = ""
     End If
 End Function
 
