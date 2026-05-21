@@ -30,7 +30,7 @@ Private Const REG_PATH_ROOT As String = "HKEY_CURRENT_USER\Software\OllamaAI"
 ' Module-level variables
 '====================================================================
 Private m_Inspectors As Outlook.Inspectors
-Private WithEvents m_InspectorEvents As Outlook.Inspectors
+Private m_Events As OllamaEvents
 
 '====================================================================
 ' Windows API - single line declarations (no continuations)
@@ -51,7 +51,8 @@ Public Sub Ollama_Initialize()
     On Error Resume Next
     
     Set m_Inspectors = Outlook.Application.Inspectors
-    Set m_InspectorEvents = m_Inspectors
+    Set m_Events = New OllamaEvents
+    m_Events.Init m_Inspectors
     
     Dim testVal As String
     testVal = GetRegSetting("Model", "")
@@ -60,70 +61,6 @@ Public Sub Ollama_Initialize()
         SaveRegSetting "Prompt", "You are a helpful email assistant. Analyze the email content and respond professionally. Keep your response concise and well-structured."
         SaveRegSetting "Timeout", CStr(REQUEST_TIMEOUT_SECS)
     End If
-End Sub
-
-'====================================================================
-' Inspector Event Handler
-'====================================================================
-Private Sub m_InspectorEvents_NewInspector(ByVal Inspector As Outlook.Inspector)
-    On Error GoTo HandlerError
-    If Inspector.CurrentItem.Class = olMail Then
-        AddToolbarButton Inspector
-    End If
-    Exit Sub
-HandlerError:
-End Sub
-
-'====================================================================
-' Toolbar Button Management - Creates visible toolbar in compose windows
-'====================================================================
-Private Sub AddToolbarButton(ByVal Inspector As Outlook.Inspector)
-    On Error Resume Next
-    Dim cmdBar As Office.CommandBar
-    Dim btn As Office.CommandBarButton
-    Dim existingBar As Office.CommandBar
-    
-    ' Check if toolbar already exists
-    Set existingBar = Inspector.CommandBars("Ollama AI")
-    If Not existingBar Is Nothing Then Exit Sub
-    
-    ' Create new visible toolbar at top of compose window
-    Set cmdBar = Inspector.CommandBars.Add("Ollama AI", msoBarTop, False, True)
-    If cmdBar Is Nothing Then Exit Sub
-    
-    cmdBar.Visible = True
-    
-    ' Add "Process with AI" button
-    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
-    With btn
-        .Caption = "Process with AI"
-        .Tag = "OllamaAI_Process"
-        .OnAction = "'" & APP_NAME & ".Ollama_ProcessWithAI'"
-        .TooltipText = "Send email to Ollama AI for processing"
-        .Style = msoButtonCaption
-    End With
-    
-    cmdBar.Controls.Add Type:=msoControlSeparator
-    
-    ' Add "Settings" button
-    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
-    With btn
-        .Caption = "Settings"
-        .Tag = "OllamaAI_Settings"
-        .OnAction = "'" & APP_NAME & ".Ollama_ShowConfigurationForm'"
-        .TooltipText = "Configure Ollama AI settings"
-        .Style = msoButtonCaption
-    End With
-    
-    ' Add "About" button
-    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
-    With btn
-        .Caption = "About"
-        .Tag = "OllamaAI_About"
-        .OnAction = "'" & APP_NAME & ".Ollama_ShowAboutForm'"
-        .TooltipText = "About Ollama Outlook AI"
-        .Style = msoButtonCaption
-    End With
 End Sub
 
 '====================================================================
