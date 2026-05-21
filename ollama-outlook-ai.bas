@@ -75,29 +75,26 @@ HandlerError:
 End Sub
 
 '====================================================================
-' Toolbar Button Management
+' Toolbar Button Management - Creates visible toolbar in compose windows
 '====================================================================
 Private Sub AddToolbarButton(ByVal Inspector As Outlook.Inspector)
     On Error Resume Next
     Dim cmdBar As Office.CommandBar
-    Dim cmdBarPopup As Office.CommandBarPopup
     Dim btn As Office.CommandBarButton
-    Dim existingBtn As Office.CommandBarButton
+    Dim existingBar As Office.CommandBar
     
-    Set cmdBar = Inspector.CommandBars("Menu Bar")
+    ' Check if toolbar already exists
+    Set existingBar = Inspector.CommandBars("Ollama AI")
+    If Not existingBar Is Nothing Then Exit Sub
+    
+    ' Create new visible toolbar at top of compose window
+    Set cmdBar = Inspector.CommandBars.Add("Ollama AI", msoBarTop, False, True)
     If cmdBar Is Nothing Then Exit Sub
     
-    Set existingBtn = cmdBar.FindControl(Tag:="OllamaAI")
-    If Not existingBtn Is Nothing Then Exit Sub
+    cmdBar.Visible = True
     
-    Set cmdBarPopup = cmdBar.Controls.Add(Type:=msoControlPopup, Temporary:=True)
-    If cmdBarPopup Is Nothing Then Exit Sub
-    
-    cmdBarPopup.Caption = "Ollama AI"
-    cmdBarPopup.Tag = "OllamaAI"
-    cmdBarPopup.TooltipText = "Ollama AI Email Assistant"
-    
-    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    ' Add "Process with AI" button
+    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
     With btn
         .Caption = "Process with AI"
         .Tag = "OllamaAI_Process"
@@ -106,20 +103,22 @@ Private Sub AddToolbarButton(ByVal Inspector As Outlook.Inspector)
         .Style = msoButtonCaption
     End With
     
-    cmdBarPopup.Controls.Add Type:=msoControlSeparator
+    cmdBar.Controls.Add Type:=msoControlSeparator
     
-    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    ' Add "Settings" button
+    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
     With btn
-        .Caption = "Settings..."
+        .Caption = "Settings"
         .Tag = "OllamaAI_Settings"
         .OnAction = "'" & APP_NAME & ".Ollama_ShowConfigurationForm'"
         .TooltipText = "Configure Ollama AI settings"
         .Style = msoButtonCaption
     End With
     
-    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    ' Add "About" button
+    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
     With btn
-        .Caption = "About..."
+        .Caption = "About"
         .Tag = "OllamaAI_About"
         .OnAction = "'" & APP_NAME & ".Ollama_ShowAboutForm'"
         .TooltipText = "About Ollama Outlook AI"
