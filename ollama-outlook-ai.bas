@@ -31,7 +31,6 @@ Private Const REG_PATH_ROOT As String = "HKEY_CURRENT_USER\Software\OllamaAI"
 '====================================================================
 Private m_Inspectors As Outlook.Inspectors
 Private WithEvents m_InspectorEvents As Outlook.Inspectors
-Private m_Ribbon As OllamaRibbon
 
 '====================================================================
 ' Windows API - single line declarations (no continuations)
@@ -54,8 +53,6 @@ Public Sub Ollama_Initialize()
     Set m_Inspectors = Outlook.Application.Inspectors
     Set m_InspectorEvents = m_Inspectors
     
-    Set m_Ribbon = New OllamaRibbon
-    
     Dim testVal As String
     testVal = GetRegSetting("Model", "")
     If testVal = "" Then
@@ -63,6 +60,71 @@ Public Sub Ollama_Initialize()
         SaveRegSetting "Prompt", "You are a helpful email assistant. Analyze the email content and respond professionally. Keep your response concise and well-structured."
         SaveRegSetting "Timeout", CStr(REQUEST_TIMEOUT_SECS)
     End If
+End Sub
+
+'====================================================================
+' Inspector Event Handler
+'====================================================================
+Private Sub m_InspectorEvents_NewInspector(ByVal Inspector As Outlook.Inspector)
+    On Error GoTo HandlerError
+    If Inspector.CurrentItem.Class = olMail Then
+        AddToolbarButton Inspector
+    End If
+    Exit Sub
+HandlerError:
+End Sub
+
+'====================================================================
+' Toolbar Button Management
+'====================================================================
+Private Sub AddToolbarButton(ByVal Inspector As Outlook.Inspector)
+    On Error Resume Next
+    Dim cmdBar As Office.CommandBar
+    Dim cmdBarPopup As Office.CommandBarPopup
+    Dim btn As Office.CommandBarButton
+    Dim existingBtn As Office.CommandBarButton
+    
+    Set cmdBar = Inspector.CommandBars("Menu Bar")
+    If cmdBar Is Nothing Then Exit Sub
+    
+    Set existingBtn = cmdBar.FindControl(Tag:="OllamaAI")
+    If Not existingBtn Is Nothing Then Exit Sub
+    
+    Set cmdBarPopup = cmdBar.Controls.Add(Type:=msoControlPopup, Temporary:=True)
+    If cmdBarPopup Is Nothing Then Exit Sub
+    
+    cmdBarPopup.Caption = "Ollama AI"
+    cmdBarPopup.Tag = "OllamaAI"
+    cmdBarPopup.TooltipText = "Ollama AI Email Assistant"
+    
+    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "Process with AI"
+        .Tag = "OllamaAI_Process"
+        .OnAction = "'" & APP_NAME & ".Ollama_ProcessWithAI'"
+        .TooltipText = "Send email to Ollama AI for processing"
+        .Style = msoButtonCaption
+    End With
+    
+    cmdBarPopup.Controls.Add Type:=msoControlSeparator
+    
+    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "Settings..."
+        .Tag = "OllamaAI_Settings"
+        .OnAction = "'" & APP_NAME & ".Ollama_ShowConfigurationForm'"
+        .TooltipText = "Configure Ollama AI settings"
+        .Style = msoButtonCaption
+    End With
+    
+    Set btn = cmdBarPopup.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "About..."
+        .Tag = "OllamaAI_About"
+        .OnAction = "'" & APP_NAME & ".Ollama_ShowAboutForm'"
+        .TooltipText = "About Ollama Outlook AI"
+        .Style = msoButtonCaption
+    End With
 End Sub
 
 '====================================================================
