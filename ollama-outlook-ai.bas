@@ -1,4 +1,3 @@
-Attribute VB_Name = "OllamaAI"
 '====================================================================
 ' Ollama Outlook AI - Local AI Email Assistant for Outlook 2013
 ' Version 1.0.1
