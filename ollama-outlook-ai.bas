@@ -1,4 +1,5 @@
 Attribute VB_Name = "OllamaAI"
+Attribute VB_Name = "OllamaAI"
 '====================================================================
 ' Ollama Outlook AI - Local AI Email Assistant for Outlook 2013
 ' Version 1.0.1
@@ -35,11 +36,7 @@ Private WithEvents m_InspectorEvents As Outlook.Inspectors
 '====================================================================
 ' Windows API - single line declarations (no continuations)
 '====================================================================
-#If VBA7 And Win64 Then
-    Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hwnd As LongPtr, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As String, ByVal lpDirectory As String, ByVal nShowCmd As Long) As LongPtr
-#Else
     Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hwnd As Long, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As String, ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
-#End If
 
 '====================================================================
 ' Outlook Startup - Called automatically
