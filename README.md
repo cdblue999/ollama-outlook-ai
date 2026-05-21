@@ -31,7 +31,7 @@ No cloud dependency. No API keys. No data leaves your machine.
 
 1. Open Outlook and press **Alt+F11** to open the VBA editor
 2. In the menu bar, go to **File > Import File**
-3. Select `ollama-outlook-ai.vba`
+3. Select `ollama-outlook-ai.bas`
 4. Close the VBA editor and restart Outlook
 5. Go to **Tools > Macros > Ollama_Initialize** and click **Run** (only needed once)
 
@@ -82,6 +82,8 @@ All communication is via HTTP to `localhost` — no data travels over the networ
 | VBA security warning | Go to File > Options > Trust Center > Trust Center Settings > Macro Settings > Enable all macros. |
 
 ## Technical Details
+
+- **File to import**: `ollama-outlook-ai.bas` (VBA standard module)
 
 - **Language**: VBA (Visual Basic for Applications)
 - **HTTP Client**: WinHttp.WinHttpRequest.5.1

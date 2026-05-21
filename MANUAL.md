@@ -10,7 +10,7 @@
 **Step 2: Import the macro into Outlook**
 1. Open Outlook
 2. Press **Alt+F11** to open the VBA editor
-3. Go to **File > Import File** and select `ollama-outlook-ai.vba`
+3. Go to **File > Import File** and select `ollama-outlook-ai.bas`
 4. Close the VBA editor
 
 **Step 3: Enable macros**
@@ -82,6 +82,6 @@ Email text → VBA macro → HTTP POST → Ollama (localhost:11434) → AI model
 
 | File | Purpose |
 |------|---------|
-| `ollama-outlook-ai.vba` | Main VBA module — import into Outlook |
+| `ollama-outlook-ai.bas` | Main VBA module — import into Outlook |
 | `README.md` | Project overview and installation guide |
 | `MANUAL.md` | This file — daily operation reference |
