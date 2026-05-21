@@ -1,6 +1,6 @@
 VERSION 1.0 CLASS
 BEGIN
-  MultiUse = -1
+  MultiUse = -1  'True
 END
 Attribute VB_Name = "OllamaRibbon"
 Attribute VB_GlobalNameSpace = False
@@ -17,23 +17,23 @@ End Function
 
 Private Function GetRibbonXML() As String
     Dim xml As String
-    xml = "<customUI xmlns=""http://schemas.microsoft.com/office/2009/07/customui"">"
+    xml = "<customUI xmlns=\""http://schemas.microsoft.com/office/2009/07/customui\"">"
     xml = xml & "<ribbon>"
     xml = xml & "<tabs>"
-    xml = xml & "<tab idMso=""TabNewMailMessage"">"
-    xml = xml & "<group id=""OllamaAIGroup"" label=""Ollama AI"" insertAfterMso=""GroupClipboard"">"
-    xml = xml & "<button id=""OllamaProcessBtn"" label=""Process&#10;with AI"" size=""large"" onAction=""OllamaRibbon_OnProcess"" imageMso=""CreateMessage"" screentip=""Process email with Ollama AI"" supertip=""Send email content to your local Ollama model for AI assistance"" />"
-    xml = xml & "<separator id=""OllamaSep1"" />"
-    xml = xml & "<button id=""OllamaSettingsBtn"" label=""Settings"" size=""normal"" onAction=""OllamaRibbon_OnSettings"" imageMso=""ApplicationOptionsDialog"" screentip=""Configure Ollama AI settings"" />"
-    xml = xml & "<button id=""OllamaAboutBtn"" label=""About"" size=""normal"" onAction=""OllamaRibbon_OnAbout"" imageMso=""Info"" screentip=""About Ollama Outlook AI"" />"
+    xml = xml & "<tab idMso=\""TabNewMailMessage\"">"
+    xml = xml & "<group id=\""OllamaAIGroup\"" label=\""Ollama AI\"" insertAfterMso=\""GroupClipboard\"">"
+    xml = xml & "<button id=\""OllamaProcessBtn\"" label=\""Process&#10;with AI\"" size=\""large\"" onAction=\""OllamaRibbon_OnProcess\"" imageMso=\""CreateMessage\"" screentip=\""Process email with Ollama AI\"" />"
+    xml = xml & "<separator id=\""OllamaSep1\"" />"
+    xml = xml & "<button id=\""OllamaSettingsBtn\"" label=\""Settings\"" size=\""normal\"" onAction=\""OllamaRibbon_OnSettings\"" imageMso=\""ApplicationOptionsDialog\"" />"
+    xml = xml & "<button id=\""OllamaAboutBtn\"" label=\""About\"" size=\""normal\"" onAction=\""OllamaRibbon_OnAbout\"" imageMso=\""Info\"" />"
     xml = xml & "</group>"
     xml = xml & "</tab>"
-    xml = xml & "<tab idMso=""TabReadMessage"">"
-    xml = xml & "<group id=""OllamaAIGroupRead"" label=""Ollama AI"" insertAfterMso=""GroupClipboard"">"
-    xml = xml & "<button id=""OllamaProcessBtnRead"" label=""Process&#10;with AI"" size=""large"" onAction=""OllamaRibbon_OnProcess"" imageMso=""CreateMessage"" screentip=""Process email with Ollama AI"" />"
-    xml = xml & "<separator id=""OllamaSep1Read"" />"
-    xml = xml & "<button id=""OllamaSettingsBtnRead"" label=""Settings"" size=""normal"" onAction=""OllamaRibbon_OnSettings"" imageMso=""ApplicationOptionsDialog"" />"
-    xml = xml & "<button id=""OllamaAboutBtnRead"" label=""About"" size=""normal"" onAction=""OllamaRibbon_OnAbout"" imageMso=""Info"" />"
+    xml = xml & "<tab idMso=\""TabReadMessage\"">"
+    xml = xml & "<group id=\""OllamaAIGroupRead\"" label=\""Ollama AI\"" insertAfterMso=\""GroupClipboard\"">"
+    xml = xml & "<button id=\""OllamaProcessBtnRead\"" label=\""Process&#10;with AI\"" size=\""large\"" onAction=\""OllamaRibbon_OnProcess\"" imageMso=\""CreateMessage\"" />"
+    xml = xml & "<separator id=\""OllamaSep1Read\"" />"
+    xml = xml & "<button id=\""OllamaSettingsBtnRead\"" label=\""Settings\"" size=\""normal\"" onAction=\""OllamaRibbon_OnSettings\"" imageMso=\""ApplicationOptionsDialog\"" />"
+    xml = xml & "<button id=\""OllamaAboutBtnRead\"" label=\""About\"" size=\""normal\"" onAction=\""OllamaRibbon_OnAbout\"" imageMso=\""Info\"" />"
     xml = xml & "</group>"
     xml = xml & "</tab>"
     xml = xml & "</tabs>"
