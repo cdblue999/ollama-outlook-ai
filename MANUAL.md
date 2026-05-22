@@ -10,9 +10,7 @@
 **Step 2: Import the macro into Outlook**
 1. Open Outlook
 2. Press **Alt+F11** to open the VBA editor
-3. Go to **File > Import File** and import **both** files:
-   - `ollama-outlook-ai.bas` (main module)
-   - `ollama-events.cls` (event handler class)
+3. Go to **File > Import File** and select `OllamaAI.bas`
 4. Close the VBA editor
 
 **Step 3: Enable macros**
@@ -25,7 +23,14 @@
 3. Find and select `Ollama_Initialize`, click **Run**
 4. Restart Outlook again
 
-The **Ollama AI** button will now appear in email compose windows.
+The **Ollama AI** toolbar will now appear in open email compose windows.
+
+**Optional: Auto-toolbar for new compose windows**
+1. In the VBA editor, double-click **ThisOutlookSession** in the Project pane
+2. Paste: `Private Sub Application_NewInspector(ByVal Inspector As Outlook.Inspector): OllamaAI.Ollama_OnNewInspector Inspector: End Sub`
+3. Restart Outlook. Now every new compose window gets the toolbar automatically.
+
+If you don't add this hook, simply re-run `Ollama_Initialize` whenever you open a new compose window without a toolbar.
 
 ---
 
@@ -60,7 +65,7 @@ The **Ollama AI** button will now appear in email compose windows.
 | **"Ollama is not running"** | Start Ollama from Start Menu, or run `ollama serve` in terminal. |
 | **No models in dropdown** | Open terminal: `ollama pull llama3.2:3b` then reopen Settings. |
 | **AI takes too long** | Use a smaller model (3B-7B range) or increase timeout in Settings. |
-| **Button doesn't appear** | Run `Ollama_Initialize` macro again, restart Outlook. |
+| **Button doesn't appear** | Run `Ollama_Initialize` macro again. For new compose windows, re-run `Ollama_Initialize` or add the ThisOutlookSession hook (see installation). |
 | **Response is empty** | Check your model is downloaded (`ollama list`). Try a different model. |
 | **VBA security warning** | Enable macros in Trust Center settings. |
 
@@ -84,7 +89,6 @@ Email text → VBA macro → HTTP POST → Ollama (localhost:11434) → AI model
 
 | File | Purpose |
 |------|---------|
-| `ollama-outlook-ai.bas` | Main VBA module — import into Outlook |
-| `ollama-events.cls` | Event handler class — required for toolbar buttons |
+| `OllamaAI.bas` | Main VBA module — single file, import into Outlook |
 | `README.md` | Project overview and installation guide |
 | `MANUAL.md` | This file — daily operation reference |

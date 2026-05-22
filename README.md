@@ -31,13 +31,26 @@ No cloud dependency. No API keys. No data leaves your machine.
 
 1. Open Outlook and press **Alt+F11** to open the VBA editor
 2. In the menu bar, go to **File > Import File**
-3. Import **both** files (order doesn't matter):
-   - `ollama-outlook-ai.bas` (main module)
-   - `ollama-events.cls` (event handler class)
+3. Select `OllamaAI.bas`
 4. Close the VBA editor and restart Outlook
 5. Go to **Tools > Macros > Ollama_Initialize** and click **Run** (only needed once)
 
 The **Ollama AI** toolbar will now appear at the top of email compose windows.
+
+### Optional: Auto-toolbar in new compose windows
+
+To have the toolbar appear automatically when you open a new compose window:
+
+1. In the VBA editor, double-click **ThisOutlookSession** in the Project pane
+2. Paste the following code:
+
+```vba
+Private Sub Application_NewInspector(ByVal Inspector As Outlook.Inspector)
+    OllamaAI.Ollama_OnNewInspector Inspector
+End Sub
+```
+
+3. Close and restart Outlook. Now every new compose window gets the toolbar automatically.
 
 ## Configuration
 
@@ -80,12 +93,12 @@ All communication is via HTTP to `localhost` — no data travels over the networ
 | "Ollama is not running" | Open a terminal and run `ollama list` to verify. Start Ollama from Start Menu if not running. |
 | No models in dropdown | Run `ollama pull llama3.2:3b` in terminal, then reopen Settings. |
 | Request times out | Increase timeout in Settings (120s+). Smaller models respond faster. |
-| Button not appearing | Run Tools > Macros > Ollama_Initialize once, then restart Outlook. |
+| Button not appearing | Run Tools > Macros > Ollama_Initialize once. For new compose windows, re-run Ollama_Initialize or add the ThisOutlookSession hook (see Installation). |
 | VBA security warning | Go to File > Options > Trust Center > Trust Center Settings > Macro Settings > Enable all macros. |
 
 ## Technical Details
 
-- **File to import**: `ollama-outlook-ai.bas` (VBA standard module)
+- **File to import**: `OllamaAI.bas` (VBA standard module) — single file, no class modules needed
 
 - **Language**: VBA (Visual Basic for Applications)
 - **HTTP Client**: WinHttp.WinHttpRequest.5.1

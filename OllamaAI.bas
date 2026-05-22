@@ -1,10 +1,15 @@
 Attribute VB_Name = "OllamaAI"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Explicit
+
 '====================================================================
 ' Ollama Outlook AI - Local AI Email Assistant for Outlook 2013
-' Version 1.0.1
+' Version 1.1.0
 '
-' Recoded from key-assist-outlook (paulchi-intel) to use Ollama's
-' OpenAI-compatible local API endpoint instead of Intel ExpertGPT.
+' Single-file VBA module. No class modules, no external dependencies.
 '
 ' Requirements:
 '   - Ollama running at http://localhost:11434
@@ -14,52 +19,119 @@ Attribute VB_Name = "OllamaAI"
 ' All processing is fully local. No data leaves your machine.
 '====================================================================
 
-Option Explicit
-
 '====================================================================
 ' Constants
 '====================================================================
 Private Const APP_NAME As String = "OllamaAI"
-Private Const APP_VERSION As String = "1.0.1"
+Private Const APP_VERSION As String = "1.1.0"
 Private Const OLLAMA_BASE_URL As String = "http://localhost:11434"
 Private Const OLLAMA_DEFAULT_MODEL As String = "llama3.2:3b"
 Private Const REQUEST_TIMEOUT_SECS As Long = 120
 Private Const REG_PATH_ROOT As String = "HKEY_CURRENT_USER\Software\OllamaAI"
 
 '====================================================================
-' Module-level variables
-'====================================================================
-Private m_Inspectors As Outlook.Inspectors
-Private m_Events As OllamaEvents
-
-'====================================================================
 ' Windows API - single line declarations (no continuations)
 '====================================================================
-    Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hwnd As Long, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As String, ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
+Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hwnd As Long, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As String, ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
 
 '====================================================================
-' Outlook Startup - Called automatically
-'====================================================================
-Private Sub Application_Startup()
-    Ollama_Initialize
-End Sub
-
-'====================================================================
-' Initialization
+' Initialization - Run this once after import or to refresh toolbars
 '====================================================================
 Public Sub Ollama_Initialize()
     On Error Resume Next
     
-    Set m_Inspectors = Outlook.Application.Inspectors
-    Set m_Events = New OllamaEvents
-    m_Events.Init m_Inspectors
-    
+    ' Create default settings if first run
     Dim testVal As String
     testVal = GetRegSetting("Model", "")
     If testVal = "" Then
         SaveRegSetting "Model", OLLAMA_DEFAULT_MODEL
         SaveRegSetting "Prompt", "You are a helpful email assistant. Analyze the email content and respond professionally. Keep your response concise and well-structured."
         SaveRegSetting "Timeout", CStr(REQUEST_TIMEOUT_SECS)
+    End If
+    
+    ' Add toolbar to all open compose windows
+    AddToolbarToAllInspectors
+End Sub
+
+'====================================================================
+' Add toolbar to all currently open inspectors
+'====================================================================
+Private Sub AddToolbarToAllInspectors()
+    On Error Resume Next
+    Dim insp As Outlook.Inspector
+    Dim i As Long
+    For i = 1 To Outlook.Application.Inspectors.Count
+        Set insp = Outlook.Application.Inspectors.Item(i)
+        If Not insp Is Nothing Then
+            If insp.CurrentItem.Class = olMail Then
+                EnsureToolbar insp
+            End If
+        End If
+    Next i
+End Sub
+
+'====================================================================
+' Create toolbar on an inspector if it doesn't exist
+'====================================================================
+Public Sub EnsureToolbar(ByVal Inspector As Outlook.Inspector)
+    On Error Resume Next
+    Dim cmdBar As Office.CommandBar
+    Dim btn As Office.CommandBarButton
+    
+    ' Check if toolbar already exists
+    Set cmdBar = Inspector.CommandBars("Ollama AI")
+    If Not cmdBar Is Nothing Then Exit Sub
+    
+    ' Create new visible toolbar at top of compose window
+    Set cmdBar = Inspector.CommandBars.Add("Ollama AI", msoBarTop, False, True)
+    If cmdBar Is Nothing Then Exit Sub
+    
+    cmdBar.Visible = True
+    
+    ' Add "Process with AI" button
+    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "Process with AI"
+        .Tag = "OllamaAI_Process"
+        .OnAction = "'OllamaAI.Ollama_ProcessWithAI'"
+        .TooltipText = "Send email to Ollama AI for processing"
+        .Style = msoButtonCaption
+    End With
+    
+    cmdBar.Controls.Add Type:=msoControlSeparator
+    
+    ' Add "Settings" button
+    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "Settings"
+        .Tag = "OllamaAI_Settings"
+        .OnAction = "'OllamaAI.Ollama_ShowConfigurationForm'"
+        .TooltipText = "Configure Ollama AI settings"
+        .Style = msoButtonCaption
+    End With
+    
+    ' Add "About" button
+    Set btn = cmdBar.Controls.Add(Type:=msoControlButton)
+    With btn
+        .Caption = "About"
+        .Tag = "OllamaAI_About"
+        .OnAction = "'OllamaAI.Ollama_ShowAboutForm'"
+        .TooltipText = "About Ollama Outlook AI"
+        .Style = msoButtonCaption
+    End With
+End Sub
+
+'====================================================================
+' Optional: Call from ThisOutlookSession to auto-add toolbar to new windows
+' Paste in ThisOutlookSession:
+'   Private Sub Application_NewInspector(ByVal Inspector As Outlook.Inspector)
+'       OllamaAI.Ollama_OnNewInspector Inspector
+'   End Sub
+'====================================================================
+Public Sub Ollama_OnNewInspector(ByVal Inspector As Outlook.Inspector)
+    On Error Resume Next
+    If Inspector.CurrentItem.Class = olMail Then
+        EnsureToolbar Inspector
     End If
 End Sub
 
@@ -78,8 +150,7 @@ Public Sub Ollama_ShowConfigurationForm()
     currentPrompt = GetRegSetting("Prompt", "")
     currentTimeout = GetRegSetting("Timeout", CStr(REQUEST_TIMEOUT_SECS))
     
-    ' Must build the PowerShell script as a single string block
-    ' Write to temp file instead (avoids VBA string length issues)
+    ' Write PowerShell script to temp file and execute it
     Dim psCode As String
     psCode = "$models = @(); "
     psCode = psCode & "try { "
@@ -299,6 +370,15 @@ End Function
 Public Sub Ollama_ProcessWithAI()
     On Error GoTo ProcessError
     
+    ' First, ensure toolbar exists on the active inspector
+    Dim insp As Outlook.Inspector
+    Set insp = GetActiveInspector()
+    If Not insp Is Nothing Then
+        If insp.CurrentItem.Class = olMail Then
+            EnsureToolbar insp
+        End If
+    End If
+    
     If Not Ollama_IsOllamaRunning() Then
         Dim msgOff As String
         msgOff = "Ollama is not running." & vbCrLf & vbCrLf & "Please start Ollama and try again."
@@ -306,7 +386,6 @@ Public Sub Ollama_ProcessWithAI()
         Exit Sub
     End If
     
-    Dim insp As Outlook.Inspector
     Set insp = GetActiveInspector()
     If insp Is Nothing Then
         Dim msgNoInsp As String
