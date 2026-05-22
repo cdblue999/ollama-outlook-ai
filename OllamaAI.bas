@@ -7,7 +7,7 @@ Option Explicit
 
 '====================================================================
 ' Ollama Outlook AI - Local AI Email Assistant for Outlook 2013
-' Version 1.1.0
+' Version 1.1.1
 '
 ' Single-file VBA module. No class modules, no external dependencies.
 '
@@ -23,16 +23,11 @@ Option Explicit
 ' Constants
 '====================================================================
 Private Const APP_NAME As String = "OllamaAI"
-Private Const APP_VERSION As String = "1.1.0"
+Private Const APP_VERSION As String = "1.1.1"
 Private Const OLLAMA_BASE_URL As String = "http://localhost:11434"
 Private Const OLLAMA_DEFAULT_MODEL As String = "llama3.2:3b"
 Private Const REQUEST_TIMEOUT_SECS As Long = 120
 Private Const REG_PATH_ROOT As String = "HKEY_CURRENT_USER\Software\OllamaAI"
-
-'====================================================================
-' Windows API - single line declarations (no continuations)
-'====================================================================
-Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hwnd As Long, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As String, ByVal lpDirectory As String, ByVal nShowCmd As Long) As Long
 
 '====================================================================
 ' Initialization - Run this once after import or to refresh toolbars
@@ -73,7 +68,7 @@ End Sub
 '====================================================================
 ' Create toolbar on an inspector if it doesn't exist
 '====================================================================
-Public Sub EnsureToolbar(ByVal Inspector As Outlook.Inspector)
+Private Sub EnsureToolbar(ByVal Inspector As Outlook.Inspector)
     On Error Resume Next
     Dim cmdBar As Office.CommandBar
     Dim btn As Office.CommandBarButton
